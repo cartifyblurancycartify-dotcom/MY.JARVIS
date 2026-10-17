@@ -1,0 +1,458 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080d19">
+<title>Maya AI</title>
+
+<style>
+:root {
+  color-scheme: dark;
+  --bg:#080d19;
+  --panel:#111a2c;
+  --line:#253653;
+  --cyan:#53e7ff;
+  --text:#f2f7ff;
+  --muted:#a2b1c9;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0; background:radial-gradient(circle at top,#172c49,var(--bg) 55%);
+  color:var(--text); font-family:system-ui,Arial,sans-serif; min-height:100vh;
+}
+header {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:16px; border-bottom:1px solid var(--line);
+  position:sticky; top:0; background:#080d19ed; z-index:5;
+}
+.brand { font-size:22px; font-weight:800; letter-spacing:2px; }
+.brand span { color:var(--cyan); }
+.status { color:var(--muted); font-size:12px; }
+main { max-width:850px; margin:auto; padding:18px; }
+.hero { text-align:center; padding:24px 0 12px; }
+.orb {
+  width:145px; height:145px; border-radius:50%; margin:10px auto 18px;
+  border:2px solid var(--cyan);
+  background:radial-gradient(circle,#62edff44,#142a48 50%,#080d19 72%);
+  box-shadow:0 0 35px #53e7ff33,inset 0 0 30px #53e7ff22;
+  display:grid; place-items:center; font-size:48px;
+}
+.orb.listening { animation:pulse 1.2s infinite; }
+@keyframes pulse {
+  50% { box-shadow:0 0 60px #53e7ff99,inset 0 0 35px #53e7ff66; }
+}
+h1 { margin:0; font-size:30px; }
+.subtitle { color:var(--muted); margin-top:8px; }
+button, input, textarea {
+  font:inherit; border-radius:12px; border:1px solid var(--line);
+}
+button {
+  padding:12px 14px; color:var(--text); background:#172640;
+  cursor:pointer; touch-action:manipulation;
+}
+button:active { transform:scale(.98); }
+.primary { background:var(--cyan); color:#06111d; font-weight:800; border:0; }
+.controls { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:18px 0; }
+.panel {
+  background:#101a2bee; border:1px solid var(--line);
+  border-radius:18px; padding:16px; margin:14px 0;
+}
+h2 { font-size:17px; margin:0 0 12px; }
+#chat { display:flex; flex-direction:column; gap:12px; }
+.message {
+  padding:12px 14px; border-radius:14px; line-height:1.5;
+  overflow-wrap:anywhere; white-space:pre-wrap;
+}
+.user { align-self:flex-end; background:#153b51; max-width:90%; }
+.maya { align-self:flex-start; background:#1a263c; max-width:95%; }
+.muted { color:var(--muted); font-size:13px; }
+.composer { display:flex; gap:8px; }
+.composer input { min-width:0; flex:1; }
+input, textarea {
+  width:100%; padding:13px; color:var(--text); background:#091221;
+  outline:none;
+}
+.quick { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+.quick button { text-align:left; min-height:52px; }
+.note-row { display:flex; gap:8px; margin-bottom:10px; }
+.note-row input { min-width:0; flex:1; }
+#notesList { padding-left:20px; }
+#notesList li { margin:9px 0; overflow-wrap:anywhere; }
+footer { text-align:center; color:var(--muted); padding:22px; font-size:12px; }
+a { color:var(--cyan); }
+@media(min-width:650px) {
+  .quick { grid-template-columns:repeat(4,minmax(0,1fr)); }
+}
+</style>
+</head>
+
+<body>
+<header>
+  <div class="brand">MAYA <span>AI</span></div>
+  <div class="status" id="status">Ready</div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="orb" id="orb">✦</div>
+    <h1>Hello, I'm Maya</h1>
+    <div class="subtitle">Your AI assistant</div>
+    <div class="controls">
+      <button class="primary" id="listenBtn">🎙 Talk to Maya</button>
+      <button id="wakeBtn">Enable “Hey Maya”</button>
+      <button id="stopBtn">Stop voice</button>
+    </div>
+    <div class="muted" id="voiceInfo">
+      Tap Talk to Maya and allow microphone access.
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Conversation</h2>
+    <div id="chat" aria-live="polite">
+      <div class="message maya">Hi! I'm Maya. Ask me a question, dictate a note, or tell me what you want to search for.</div>
+    </div>
+    <div class="composer" style="margin-top:14px">
+      <input id="prompt" placeholder="Ask Maya anything…" autocomplete="off">
+      <button class="primary" id="sendBtn">Send</button>
+    </div>
+    <p class="muted">AI answers require your configured backend and API key.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Quick actions</h2>
+    <div class="quick">
+      <button data-action="search">🔎 Web search</button>
+      <button data-action="youtube">▶ YouTube</button>
+      <button data-action="maps">📍 Maps</button>
+      <button data-action="weather">🌦 Weather</button>
+      <button data-action="news">📰 Latest news</button>
+      <button data-action="shopping">🛍 Shopping</button>
+      <button data-action="time">🕒 Current time</button>
+      <button data-action="notes">📝 My notes</button>
+    </div>
+  </section>
+
+  <section class="panel" id="notesPanel">
+    <h2>My notes</h2>
+    <div class="note-row">
+      <input id="noteInput" placeholder="Write a note…">
+      <button class="primary" id="saveNoteBtn">Save</button>
+    </div>
+    <ul id="notesList"></ul>
+    <button id="clearNotesBtn">Clear all notes</button>
+  </section>
+
+  <section class="panel">
+    <h2>Reminder</h2>
+    <div class="note-row">
+      <input id="reminderText" placeholder="Reminder message">
+    </div>
+    <div class="note-row">
+      <input id="reminderMinutes" type="number" min="1" max="1440" value="10" placeholder="Minutes">
+      <button class="primary" id="reminderBtn">Set reminder</button>
+    </div>
+    <div class="muted" id="reminderStatus">
+      Keep this page open for the reminder timer to work.
+    </div>
+  </section>
+</main>
+
+<footer>
+  Maya AI · Microphone and AI access depend on browser permissions and server setup.
+</footer>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+const chat = $("chat");
+let recognition = null;
+let wakeMode = false;
+let speaking = false;
+
+function setStatus(text) {
+  $("status").textContent = text;
+}
+
+function addMessage(text, who = "maya") {
+  const el = document.createElement("div");
+  el.className = "message " + who;
+  el.textContent = text;
+  chat.appendChild(el);
+  el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  return el;
+}
+
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "en-IN";
+  utterance.rate = 1;
+  utterance.onstart = () => { speaking = true; };
+  utterance.onend = () => { speaking = false; };
+  window.speechSynthesis.speak(utterance);
+}
+
+function openSearch(url, query) {
+  window.open(url + encodeURIComponent(query), "_blank", "noopener");
+}
+
+function runQuickAction(action) {
+  const q = $("prompt").value.trim();
+
+  switch (action) {
+    case "search":
+      openSearch("https://www.google.com/search?q=", q || "latest information");
+      break;
+    case "youtube":
+      openSearch("https://www.youtube.com/results?search_query=", q || "popular videos");
+      break;
+    case "maps":
+      openSearch("https://www.google.com/maps/search/?api=1&query=", q || "nearby places");
+      break;
+    case "weather":
+      openSearch("https://www.google.com/search?q=", "weather " + (q || "today"));
+      break;
+    case "news":
+      openSearch("https://news.google.com/search?q=", q || "latest news");
+      break;
+    case "shopping":
+      openSearch("https://www.google.com/search?tbm=shop&q=", q || "products");
+      break;
+    case "time":
+      addMessage("Your device time is " + new Date().toLocaleString());
+      break;
+    case "notes":
+      $("notesPanel").scrollIntoView({ behavior: "smooth" });
+      break;
+  }
+}
+
+document.querySelectorAll("[data-action]").forEach(button => {
+  button.addEventListener("click", () => runQuickAction(button.dataset.action));
+});
+
+async function askMaya(text) {
+  const question = text.trim();
+  if (!question) return;
+
+  addMessage(question, "user");
+  $("prompt").value = "";
+  setStatus("Thinking…");
+
+  const loading = addMessage("Thinking…");
+
+  try {
+    // Requires server.js with a POST /api/chat endpoint.
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: question })
+    });
+
+    if (!response.ok) {
+      throw new Error("AI server returned HTTP " + response.status);
+    }
+
+    const data = await response.json();
+    const answer = data.reply || data.output_text || data.message;
+
+    if (!answer || typeof answer !== "string") {
+      throw new Error("The server did not return a reply.");
+    }
+
+    loading.textContent = answer;
+    speak(answer);
+  } catch (error) {
+    loading.textContent =
+      "I couldn't reach the AI service. Check that your backend is deployed, " +
+      "its API key is configured, and /api/chat is working. Details: " +
+      error.message;
+  } finally {
+    setStatus("Ready");
+  }
+}
+
+$("sendBtn").addEventListener("click", () => askMaya($("prompt").value));
+$("prompt").addEventListener("keydown", event => {
+  if (event.key === "Enter") askMaya($("prompt").value);
+});
+
+$("stopBtn").addEventListener("click", () => {
+  if (recognition) {
+    wakeMode = false;
+    recognition.stop();
+  }
+  window.speechSynthesis?.cancel();
+  $("orb").classList.remove("listening");
+  $("voiceInfo").textContent = "Voice stopped.";
+  setStatus("Ready");
+});
+
+function startRecognition() {
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    $("voiceInfo").textContent =
+      "Speech recognition isn't supported in this browser. Try a compatible browser.";
+    return;
+  }
+
+  if (recognition) {
+    try { recognition.stop(); } catch (_) {}
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.lang = "en-IN";
+  recognition.continuous = wakeMode;
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    $("orb").classList.add("listening");
+    $("voiceInfo").textContent = wakeMode
+      ? 'Listening for "Hey Maya" while this page is active…'
+      : "Listening… speak now.";
+    setStatus("Listening");
+  };
+
+  recognition.onresult = event => {
+    const result = event.results[event.results.length - 1][0].transcript.trim();
+    if (!result) return;
+
+    if (wakeMode) {
+      if (/hey maya|hi maya|hello maya/i.test(result)) {
+        const command = result.replace(/hey maya|hi maya|hello maya/ig, "").trim();
+        if (command) {
+          wakeMode = false;
+          recognition.stop();
+          askMaya(command);
+        } else {
+          speak("Yes, I'm listening.");
+          $("voiceInfo").textContent = "Maya is listening. Say your question.";
+          // Restart listening for the follow-up after speaking.
+          setTimeout(() => {
+            if (wakeMode) startRecognition();
+          }, 1200);
+        }
+      }
+    } else {
+      wakeMode = false;
+      recognition.stop();
+      askMaya(result);
+    }
+  };
+
+  recognition.onerror = event => {
+    $("voiceInfo").textContent = "Microphone status: " + event.error;
+    setStatus("Voice unavailable");
+  };
+
+  recognition.onend = () => {
+    $("orb").classList.remove("listening");
+    if (wakeMode) {
+      setTimeout(() => {
+        if (wakeMode) startRecognition();
+      }, 700);
+    } else {
+      setStatus("Ready");
+    }
+  };
+
+  try {
+    recognition.start();
+  } catch (error) {
+    $("voiceInfo").textContent =
+      "Couldn't start voice recognition. Tap the voice button and try again.";
+  }
+}
+
+$("listenBtn").addEventListener("click", () => {
+  wakeMode = false;
+  startRecognition();
+});
+
+$("wakeBtn").addEventListener("click", () => {
+  wakeMode = true;
+  startRecognition();
+});
+
+const NOTES_KEY = "maya_ai_notes_v1";
+
+function getNotes() {
+  try { return JSON.parse(localStorage.getItem(NOTES_KEY) || "[]"); }
+  catch (_) { return []; }
+}
+
+function renderNotes() {
+  const list = $("notesList");
+  list.replaceChildren();
+
+  getNotes().forEach((note, index) => {
+    const li = document.createElement("li");
+    const span = document.createElement("span");
+    span.textContent = note + " ";
+
+    const remove = document.createElement("button");
+    remove.textContent = "Delete";
+    remove.addEventListener("click", () => {
+      const notes = getNotes();
+      notes.splice(index, 1);
+      localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+      renderNotes();
+    });
+
+    li.append(span, remove);
+    list.appendChild(li);
+  });
+}
+
+$("saveNoteBtn").addEventListener("click", () => {
+  const note = $("noteInput").value.trim();
+  if (!note) return;
+  const notes = getNotes();
+  notes.push(note);
+  localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+  $("noteInput").value = "";
+  renderNotes();
+});
+
+$("clearNotesBtn").addEventListener("click", () => {
+  if (confirm("Delete all saved notes?")) {
+    localStorage.removeItem(NOTES_KEY);
+    renderNotes();
+  }
+});
+
+$("reminderBtn").addEventListener("click", () => {
+  const message = $("reminderText").value.trim();
+  const minutes = Number($("reminderMinutes").value);
+
+  if (!message) {
+    $("reminderStatus").textContent = "Enter a reminder message first.";
+    return;
+  }
+  if (!Number.isFinite(minutes) || minutes < 1 || minutes > 1440) {
+    $("reminderStatus").textContent = "Enter between 1 and 1440 minutes.";
+    return;
+  }
+
+  $("reminderStatus").textContent =
+    "Reminder set for " + minutes + " minute(s). Keep this page open.";
+
+  window.setTimeout(() => {
+    const reminder = "Reminder: " + message;
+    addMessage(reminder);
+    speak(reminder);
+    alert(reminder);
+  }, minutes * 60 * 1000);
+});
+
+renderNotes();
+</script>
+</body>
+</html>
